@@ -179,6 +179,59 @@ test("payment risk tool adds context and says what it cannot see, without moving
   assert.match(emf, /What this check cannot see/);
 });
 
+test("infrastructure tool: headline for everyone, breakdown and grants with Pro", async () => {
+  const { assetGroupOf, capitalSpendingRating } = await import("../dist/capital.js");
+  assert.equal(assetGroupOf("0120"), "roads");
+  assert.equal(assetGroupOf("0270"), "electricity");
+  assert.equal(assetGroupOf("0370"), "water");
+  assert.equal(assetGroupOf("0430"), "sanitation");
+  assert.equal(assetGroupOf("1530"), "equipment");
+  assert.equal(assetGroupOf("0100"), null);
+  assert.equal(capitalSpendingRating(0.97).rating, "good");
+  assert.equal(capitalSpendingRating(1.1).rating, "average");
+  assert.equal(capitalSpendingRating(0.77).rating, "bad");
+
+  const free = await tools.toolInfrastructure({ municipality: "CPT" });
+  assert.match(free, /Capital budget, 2025\/26: R12\.94 bn/);
+  assert.match(free, /Spent in 2024\/25: R9\.32 bn\*\*, which is 77% of that year's original capital budget of R12\.07 bn/);
+  assert.match(free, /23% under budget, which Treasury's scorecard counts as bad/);
+  assert.match(free, /Pro adds the split by asset type/);
+  assert.doesNotMatch(free, /What the 2025\/26 budget is for/);
+  assert.doesNotMatch(free, /Urban Settlement/);
+
+  const pro = await tools.toolInfrastructure({ municipality: "CPT" }, true);
+  assert.match(pro, /#### What the 2025\/26 budget is for/);
+  assert.match(pro, /\| Water supply \| R7\.94 bn \| 61% \|/);
+  assert.match(pro, /\| Electricity \| R5\.00 bn \| 39% \|/);
+  assert.match(pro, /#### What was spent in 2024\/25/);
+  assert.match(pro, /\| Sanitation \| R4\.32 bn \| 46% \|/);
+  assert.match(pro, /Urban Settlement Development Grant \(USDG\) \| R1\.20 bn \| R600\.0 m/);
+  assert.match(pro, /Public Transport Network Operations Grant \(PTNG\) \| R900\.0 m \| not reported/);
+  assert.doesNotMatch(pro, /Equitable Share/);
+  assert.doesNotMatch(pro, /Pro adds/);
+
+  assert.match(await tools.toolInfrastructure({ municipality: "WC024" }), /has no capital spending or capital budget/);
+});
+
+test("customer debt tool: headline for everyone, who owes it and what for with Pro", async () => {
+  const free = await tools.toolCustomerDebt({ municipality: "CPT" });
+  assert.match(free, /Owed to the municipality at the end of Mar 2026: R17\.51 bn/);
+  assert.match(free, /62% of it is more than 90 days old\*\*, and 67% is more than 30 days old/);
+  assert.match(free, /Collection rate: 94\.4% of what it billed in 2024\/25 was collected/);
+  assert.match(free, /Pro adds who owes it/);
+  assert.doesNotMatch(free, /#### Who owes it/);
+
+  const pro = await tools.toolCustomerDebt({ municipality: "CPT" }, true);
+  assert.match(pro, /#### Who owes it/);
+  assert.match(pro, /\| Households \| R10\.00 bn \| 57% \| 80% \|/);
+  assert.match(pro, /\| Government \(organs of state\) \| R1\.51 bn \| 9% \| 0% \|/);
+  assert.match(pro, /#### What it is owed for/);
+  assert.match(pro, /\| Property rates \| R4\.00 bn \| 23% \| 100% \|/);
+  assert.doesNotMatch(pro, /do not add up/); // the two tables agree in this fixture
+
+  assert.match(await tools.toolCustomerDebt({ municipality: "WC024" }), /has not reported monthly debtor ageing/);
+});
+
 test("compare tool ranks and needs at least two", async () => {
   const out = await tools.toolCompare({ municipalities: ["CPT", "WC024"] });
   assert.match(out, /\| 1 \| Cape Town \(CPT\)/);

@@ -7,14 +7,16 @@ import {
   MAX_COMPARE,
   SORT_KEYS,
   toolCompare,
+  toolCustomerDebt,
   toolFinancialHealth,
   toolFindMunicipality,
   toolHealthTrend,
+  toolInfrastructure,
   toolPaymentRisk,
   toolProfile,
 } from "./tools.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.4.0";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -33,6 +35,12 @@ async function pro(tool: string, fn: () => Promise<string>): Promise<ToolResult>
   const lic = await getLicence();
   if (!lic.valid) return ok(upgradeMessage(tool, lic.reason));
   return run(fn);
+}
+
+/** A tool with a free headline and a Pro breakdown: the function is told which to give. */
+async function tiered(fn: (isPro: boolean) => Promise<string>): Promise<ToolResult> {
+  const lic = await getLicence();
+  return run(() => fn(lic.valid));
 }
 
 const readOnly = { readOnlyHint: true, openWorldHint: true } as const;
@@ -94,6 +102,31 @@ export function createServer(): McpServer {
       annotations: readOnly,
     },
     (a) => run(() => toolFinancialHealth(a)),
+  );
+
+  // ----- Free headline, Pro breakdown -----
+  server.registerTool(
+    "infrastructure_spending",
+    {
+      title: "Money for infrastructure",
+      description:
+        "Is there money for the work? A municipality's latest capital budget and how much of the last audited year's capital budget it actually spent. Pro adds the split by asset type (roads and stormwater, water, sanitation, electricity, waste, buildings, equipment) and the infrastructure grants behind it (MIG, WSIG, RBIG, INEP, USDG and others). Useful to contractors and suppliers deciding where to bid.",
+      inputSchema: { municipality: muni },
+      annotations: readOnly,
+    },
+    (a) => tiered((isPro) => toolInfrastructure(a, isPro)),
+  );
+
+  server.registerTool(
+    "customer_debt",
+    {
+      title: "What customers owe the municipality",
+      description:
+        "Do its own customers pay it? How much is owed to a municipality for water, electricity, rates and other services, how old that debt is, and its audited collection rate. Pro adds who owes it (households, businesses, government) and what for. Explains why a municipality may be short of cash to pay suppliers.",
+      inputSchema: { municipality: muni },
+      annotations: readOnly,
+    },
+    (a) => tiered((isPro) => toolCustomerDebt(a, isPro)),
   );
 
   // ----- Pro tools -----
@@ -163,6 +196,7 @@ export function createServer(): McpServer {
                 .join("\n")
             : `Upgrade: ${UPGRADE_URL}${lic.reason ? ` (${lic.reason})` : ""}`,
           "Free: find_municipality, municipality_profile, financial_health",
+          "Free headline, Pro breakdown: infrastructure_spending, customer_debt",
           "Pro: health_trend, supplier_payment_risk, compare_municipalities",
         ]
           .filter(Boolean)

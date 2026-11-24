@@ -15,7 +15,7 @@ export const CREDITOR_ITEMS: Record<string, string> = {
   "0950": "Medical aid deductions",
 };
 
-const BUCKETS = [
+export const BUCKETS = [
   ["l30_amount", "0–30 days"],
   ["l60_amount", "31–60 days"],
   ["l90_amount", "61–90 days"],
@@ -55,7 +55,8 @@ export function currentFinancialYear(now = new Date()): number {
   return now.getUTCMonth() >= 6 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
 }
 
-function ageing(c: Cell): Ageing {
+/** Turns one row of an ageing return (creditors or debtors) into totals and the shares past 30 and 90 days. */
+export function ageing(c: Cell): Ageing {
   const amt = (k: string) => Math.abs(num(c[`${k}.sum`]));
   const buckets = BUCKETS.map(([k, label]) => ({ label, amount: amt(k) }));
   const bucketTotal = buckets.reduce((s, b) => s + b.amount, 0);

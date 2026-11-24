@@ -291,6 +291,25 @@ export async function cashCoverageMonths(codes: string[], fy: number): Promise<R
   return out;
 }
 
+/**
+ * Audited collection rate (percent) for one financial year: what was collected from customers against what
+ * was billed. Same formula as the scorecard, asking only for the two datasets it needs.
+ */
+export async function collectionRates(codes: string[], fy: number): Promise<Record<string, number | null>> {
+  const base = { "demarcation.code": codes, "period_length.length": ["year"], "financial_year_end.year": [fy], "amount_type.code": ["AUDA"] };
+  const [collected, billed] = await Promise.all([
+    aggregate("cflow_v2", { ...base, "item.code": COLLECTED_REVENUE_CODES }, ["demarcation.code"]),
+    aggregate("incexp_v2", { ...base, "item.code": BILLED_REVENUE_CODES }, ["demarcation.code"]),
+  ]);
+  const raw: Record<string, RawYear> = {};
+  const slotFor = (c: Cell) => (raw[code(c)] ??= { items: {} });
+  for (const c of collected) slotFor(c).collectedRevenue = num(c["amount.sum"]);
+  for (const c of billed) slotFor(c).billedRevenue = num(c["amount.sum"]);
+  const out: Record<string, number | null> = {};
+  for (const k of codes) out[k] = computeIndicators(raw[k]).find((i) => i.key === "collection_rate")?.value ?? null;
+  return out;
+}
+
 export interface IrregularExpenditure {
   /** Financial year end of the latest audited figure, e.g. 2024 for 2023/24. */
   year: number;

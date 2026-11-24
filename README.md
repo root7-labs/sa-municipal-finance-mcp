@@ -18,6 +18,8 @@ Built for suppliers and contractors bidding for municipal work, consultants, len
 | `find_municipality` | Free | Find municipalities by name, province or type and get their codes |
 | `municipality_profile` | Free | Contact details and Auditor-General opinions by year, with report links |
 | `financial_health` | Free | Treasury's nine indicators for one audited year, rated good / average / bad |
+| `infrastructure_spending` | Free headline, **Pro** breakdown | Is there money for the work? Latest capital budget and how much of the last audited budget was spent. Pro adds the split by asset type and the infrastructure grants |
+| `customer_debt` | Free headline, **Pro** breakdown | Do its customers pay it? What is owed to the municipality, how old it is, and the collection rate. Pro adds who owes it and what for |
 | `health_trend` | **Pro** | The nine indicators over up to seven years, with improving/worsening flags |
 | `supplier_payment_risk` | **Pro** | Money owed to suppliers, Eskom and water boards by age, recent trend and a low/moderate/high risk band, with irregular expenditure as context and a plain list of what the check cannot see |
 | `compare_municipalities` | **Pro** | Rank up to 20 municipalities, or a whole province or category (e.g. all metros) |
@@ -58,10 +60,12 @@ Use the same `command`, `args` and `env` in your client's MCP configuration (for
 - "Compare the cash coverage and collection rates of all eight metros."
 - "Show Drakenstein's audit outcomes for the last five years with links to the reports."
 - "Rank the local municipalities in the Western Cape by financial health."
+- "How much has Polokwane budgeted for water and sanitation infrastructure, and did it spend last year's budget?"
+- "Who owes Mangaung the most: households, businesses or government?"
 
 ## Pro
 
-Pro unlocks `health_trend`, `supplier_payment_risk` and `compare_municipalities`.
+Pro unlocks `health_trend`, `supplier_payment_risk` and `compare_municipalities`, and the full breakdowns in `infrastructure_spending` and `customer_debt`.
 
 **$149 a year or $15 a month** (R2,499 / R249). Founding offer: code **MUNIFOUNDING** takes 50% off your first year, for the first 20 customers.
 

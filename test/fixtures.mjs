@@ -65,3 +65,38 @@ export const CREDITORS = {
   ],
 };
 export const BUCKETS = ["l30", "l60", "l90", "l120", "l150", "l180", "l1", "g1", "total"];
+
+// Capital spending and budgets for Cape Town: [financial year end, amount type, asset item code, rands].
+// The yearly totals are the live figures (Nov 2026): R9.32 bn audited in 2024/25 against an original budget of
+// R12.07 bn, and an original budget of R12.94 bn for 2025/26. The split between items is illustrative.
+export const CAPITAL_CPT = [
+  [2025, "AUDA", "0120", 2000000000],   // roads
+  [2025, "AUDA", "0370", 3000000000],   // water distribution
+  [2025, "AUDA", "0430", 4323404398],   // sanitation reticulation
+  [2025, "ORGB", "0120", 12073000000],
+  [2026, "ORGB", "0270", 5000000000],   // MV electricity networks
+  [2026, "ORGB", "0370", 7940000000],
+];
+
+// Grants budgeted for Cape Town in 2025/26: [amount type, grant code, label, rands]. Illustrative amounts.
+// The equitable share (ESG) is not an infrastructure grant and must be left out of the answer.
+export const GRANTS_CPT = [
+  ["ORGB", "USDG", "Urban Settlement Development Grant", 1200000000],
+  ["TRFR", "USDG", "Urban Settlement Development Grant", 600000000],
+  ["ORGB", "PTNG", "Public Transport Network Operations Grant", 900000000],
+  ["ORGB", "ESG", "Local Government Equitable Share", 4000000000],
+];
+
+// Latest monthly debtor ageing for Cape Town (FY2026 period 9 = Mar 2026), same column order as CREDITORS.
+// The total (R17.51 bn, 67% past 30 days, 62% past 90 days) is the live figure; the splits are illustrative.
+export const DEBTORS = {
+  CPT: [
+    ["2000", 5778e6, 500e6, 376e6, 356e6, 300e6, 200e6, 2000e6, 8000e6, 17510e6],
+    ["2400", 2000e6, 0, 0, 0, 0, 0, 0, 8000e6, 10000e6],   // households
+    ["2300", 3000e6, 0, 0, 0, 0, 0, 3000e6, 0, 6000e6],    // businesses
+    ["2200", 778e6, 500e6, 232e6, 0, 0, 0, 0, 0, 1510e6],  // government
+    ["1200", 2778e6, 0, 0, 0, 0, 0, 0, 4732e6, 7510e6],    // water
+    ["1300", 3000e6, 0, 0, 0, 0, 0, 3000e6, 0, 6000e6],    // electricity
+    ["1400", 0, 0, 0, 0, 0, 0, 0, 4000e6, 4000e6],         // property rates
+  ],
+};

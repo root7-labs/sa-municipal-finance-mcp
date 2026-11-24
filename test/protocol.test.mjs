@@ -17,9 +17,11 @@ test("server lists tools, gates Pro tools and validates input", async () => {
     const { tools } = await client.listTools();
     assert.deepEqual(tools.map((t) => t.name).sort(), [
       "compare_municipalities",
+      "customer_debt",
       "financial_health",
       "find_municipality",
       "health_trend",
+      "infrastructure_spending",
       "municipality_profile",
       "samuni_status",
       "supplier_payment_risk",

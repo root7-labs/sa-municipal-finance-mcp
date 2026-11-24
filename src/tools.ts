@@ -1,6 +1,10 @@
 // Tool implementations. Each returns Markdown for the AI client to read and cite.
+import { ASSET_GROUPS, capitalPicture, capitalSpendingRating, infrastructureGrants, type CapitalFigures } from "./capital.js";
+import { DEBTOR_CUSTOMERS, DEBTOR_SOURCES, fetchDebtorMonths } from "./debtors.js";
+import { UPGRADE_URL } from "./license.js";
 import {
   cashCoverageMonths,
+  collectionRates,
   computeIndicators,
   fetchRaw,
   latestAuditedYears,
@@ -278,6 +282,102 @@ export async function toolPaymentRisk(a: { municipality: string; months?: number
     sourceNote(", Section 71 monthly returns (unaudited) and audited annual financial statements"),
   );
   return lines.filter((l, i, arr) => !(l === "" && arr[i - 1] === "")).join("\n");
+}
+
+// ---------- tiered tools: a headline for everyone, the breakdown with Pro ----------
+
+const proNote = (what: string) => `_Pro adds ${what}. Get a key at ${UPGRADE_URL}_`;
+
+function groupTable(f: CapitalFigures, heading: string): string[] {
+  const rows = ASSET_GROUPS.filter((g) => (f.byGroup[g.key] ?? 0) > 0)
+    .sort((a, b) => (f.byGroup[b.key] ?? 0) - (f.byGroup[a.key] ?? 0))
+    .map((g) => `| ${g.label} | ${rand(f.byGroup[g.key])} | ${pct((f.byGroup[g.key] ?? 0) / f.total)} |`);
+  return rows.length ? ["", heading, "| Asset type | Amount | Share |", "|---|---|---|", ...rows] : [];
+}
+
+/** Is there money for the work? Capital budget, how much of it gets spent, what it goes on, and infrastructure grants. */
+export async function toolInfrastructure(a: { municipality: string }, isPro = false): Promise<string> {
+  const m = await resolveMunicipality(a.municipality);
+  const fy = currentFinancialYear();
+  const latestAudit = await latestAuditedYears([m.code], FIRST_V2_YEAR, fy);
+  const cap = await capitalPicture(m.code, latestAudit[m.code], fy);
+  if (!cap.spent && !cap.budget) {
+    return withNote(m, `${m.name} (${m.code}) has no capital spending or capital budget in the Municipal Money data.\n\n${sourceNote()}`);
+  }
+  const lines = [`### Money for infrastructure: ${muniHeading(m)}`];
+  if (cap.budget && cap.budgetYear) {
+    lines.push(`- **Capital budget, ${fyLabel(cap.budgetYear)}: ${rand(cap.budget.total)}** (original budget; the latest on file) for new, renewed and upgraded assets.`);
+  }
+  if (cap.spent && cap.auditedYear) {
+    lines.push(
+      cap.shareSpent !== null
+        ? `- **Spent in ${fyLabel(cap.auditedYear)}: ${rand(cap.spent.total)}**, which is ${pct(cap.shareSpent)} of that year's ${cap.budgetKind} capital budget of ${rand(cap.budgetForAuditedYear)} (audited).`
+        : `- **Spent in ${fyLabel(cap.auditedYear)}: ${rand(cap.spent.total)}** (audited). No capital budget is on file for that year to compare it with.`,
+    );
+    if (cap.shareSpent !== null) {
+      lines.push(`- That is ${capitalSpendingRating(cap.shareSpent).text}.${cap.shareSpent > 1.15 ? " The budget on file may not include later adjustments or grant-funded work." : ""}`);
+    }
+  }
+  if (!isPro) {
+    lines.push("", proNote("the split by asset type (roads, water, sanitation, electricity and more) and the infrastructure grants behind the budget"));
+  } else {
+    if (cap.budget && cap.budgetYear) lines.push(...groupTable(cap.budget, `#### What the ${fyLabel(cap.budgetYear)} budget is for`));
+    if (cap.spent && cap.auditedYear) lines.push(...groupTable(cap.spent, `#### What was spent in ${fyLabel(cap.auditedYear)}`));
+    const grantYear = cap.budgetYear ?? cap.auditedYear;
+    const grants = grantYear ? await infrastructureGrants(m.code, grantYear).catch(() => []) : [];
+    if (grants.length && grantYear) {
+      lines.push("", `#### Infrastructure grants, ${fyLabel(grantYear)}`, "| Grant | Budgeted | Transferred so far |", "|---|---|---|");
+      for (const g of grants) lines.push(`| ${g.label} (${g.code}) | ${rand(g.budget)} | ${g.transferred > 0 ? rand(g.transferred) : "not reported"} |`);
+      lines.push("", "Grants show what national government has set aside and paid over. Treasury's data does not show how much of each grant was spent.");
+    }
+  }
+  lines.push("", "Budgets are plans, not contracts, and say nothing about which tenders will be issued or when.", "", sourceNote(", audited annual figures and approved budgets"));
+  return lines.join("\n");
+}
+
+/** Do its customers pay it? What residents, businesses and government owe the municipality, and how old that debt is. */
+export async function toolCustomerDebt(a: { municipality: string }, isPro = false): Promise<string> {
+  const m = await resolveMunicipality(a.municipality);
+  const fy = currentFinancialYear();
+  const [months, latestAudit] = await Promise.all([fetchDebtorMonths(m.code, [fy, fy - 1]), latestAuditedYears([m.code], FIRST_V2_YEAR, fy)]);
+  if (months.length === 0) {
+    return withNote(m, `${m.name} (${m.code}) has not reported monthly debtor ageing for ${fyLabel(fy - 1)} or ${fyLabel(fy)}.\n\n${sourceNote()}`);
+  }
+  const latest = months[0];
+  const t = latest.total;
+  const rate = latestAudit[m.code] ? (await collectionRates([m.code], latestAudit[m.code]).catch(() => ({}) as Record<string, number | null>))[m.code] ?? null : null;
+  const lines = [
+    `### What customers owe: ${muniHeading(m)}`,
+    `- **Owed to the municipality at the end of ${latest.label}: ${rand(t.total)}.**`,
+    `- **${pct(t.over90 / t.total)} of it is more than 90 days old**, and ${pct(t.over30 / t.total)} is more than 30 days old.`,
+    rate !== null
+      ? `- Collection rate: ${rate.toFixed(1)}% of what it billed in ${fyLabel(latestAudit[m.code])} was collected (audited). Treasury counts 95% or more as good.`
+      : "",
+    "- Money customers do not pay is money the municipality does not have to pay its suppliers.",
+  ].filter(Boolean);
+  if (!isPro) {
+    lines.push("", proNote("who owes it (households, businesses, government) and what for (water, electricity, rates)"));
+  } else {
+    const table = (title: string, labels: Record<string, string>, rows: typeof latest.bySource) => {
+      const keys = Object.keys(labels).filter((k) => rows[k]);
+      if (!keys.length) return;
+      const sum = keys.reduce((s, k) => s + rows[k].total, 0);
+      lines.push("", title, "| | Owed | Share | > 90 days |", "|---|---|---|---|");
+      for (const k of keys.sort((x, y) => rows[y].total - rows[x].total)) {
+        lines.push(`| ${labels[k]} | ${rand(rows[k].total)} | ${pct(rows[k].total / sum)} | ${pct(rows[k].over90 / rows[k].total)} |`);
+      }
+    };
+    table("#### Who owes it", DEBTOR_CUSTOMERS, latest.byCustomer);
+    table("#### What it is owed for", DEBTOR_SOURCES, latest.bySource);
+    const byCustomer = Object.values(latest.byCustomer).reduce((s, x) => s + x.total, 0);
+    if (byCustomer > 0 && Math.abs(byCustomer - t.total) / t.total > 0.05) {
+      lines.push("", `The two tables do not add up to the same total in this return (${rand(byCustomer)} by customer, ${rand(t.total)} by what it is owed for). The figures are shown as the municipality submitted them.`);
+    }
+  }
+  const ageMonths = monthsSince(latest.fy, latest.period);
+  if (ageMonths > 9) lines.push("", `⚠️ The latest monthly return is from ${latest.label}, ${ageMonths} months ago. The picture may have changed.`);
+  lines.push("", sourceNote(", Section 71 monthly returns (unaudited)"));
+  return lines.join("\n");
 }
 
 function monthsSince(fy: number, period: number, now = new Date()): number {

@@ -1,5 +1,5 @@
 // Replaces global fetch with a router that answers Municipal Money API calls from fixtures.
-import { MUNICIPALITIES, DEMARCATION_CHANGES, CPT_2025, CREDITORS, BUCKETS, IRREGULAR, CPT_2024_OPEX } from "./fixtures.mjs";
+import { MUNICIPALITIES, DEMARCATION_CHANGES, CPT_2025, CREDITORS, BUCKETS, IRREGULAR, CPT_2024_OPEX, DEBTORS, CAPITAL_CPT, GRANTS_CPT } from "./fixtures.mjs";
 
 export const calls = [];
 const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
@@ -38,6 +38,20 @@ export function installMockFetch() {
           "financial_year_end.year": 2026, "financial_period.period": 9, "item.code": item,
           ...Object.fromEntries(BUCKETS.map((b, i) => [`${b}_amount.sum`, vals[i]])),
         })) });
+      }
+      if (cube === "aged_debtor_v2") {
+        const rows = DEBTORS[codes[0]] ?? [];
+        return json({ cells: rows.map(([item, ...vals]) => ({
+          "financial_year_end.year": 2026, "financial_period.period": 9, "item.code": item,
+          ...Object.fromEntries(BUCKETS.map((b, i) => [`${b}_amount.sum`, vals[i]])),
+        })) });
+      }
+      // Capital spending and budgets by asset item (the scorecard's own capital queries do not drill down to items)
+      if (cube === "capital_v2" && (url.searchParams.get("drilldown") ?? "").includes("item.code")) {
+        return json({ cells: codes.includes("CPT") ? CAPITAL_CPT.map(([y, t, item, amount]) => ({ "financial_year_end.year": y, "amount_type.code": t, "item.code": item, "amount.sum": amount })) : [] });
+      }
+      if (cube === "grants_v2") {
+        return json({ cells: codes.includes("CPT") ? GRANTS_CPT.map(([t, g, label, amount]) => ({ "amount_type.code": t, "grant.code": g, "grant.label": label, "amount.sum": amount })) : [] });
       }
       // Latest irregular expenditure, and the operating spending of the year it relates to (2023/24)
       if (cube === "uifwexp" && (cut["item.code"] ?? []).join() === "irregular") return json({ cells: IRREGULAR.filter((c) => codes.includes(c["demarcation.code"])) });
