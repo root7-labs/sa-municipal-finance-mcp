@@ -43,6 +43,15 @@ export const CPT_2025 = {
   fp: { "0120": 16608000000, "0130": 9088247619, "0380": 15086578580, "0230": 71412000000 },
 };
 
+// Irregular expenditure from the uifwexp cube (captured Nov 2026). The latest audited year is 2023/24.
+// A null amount means the municipality's figure was not reported, which is not the same as zero.
+export const IRREGULAR = [
+  { "demarcation.code": "CPT", "financial_year_end.year": 2023, "amount.sum": 11989000 },
+  { "demarcation.code": "CPT", "financial_year_end.year": 2024, "amount.sum": 634262000 },
+  { "demarcation.code": "GT421", "financial_year_end.year": 2024, "amount.sum": null },
+];
+export const CPT_2024_OPEX = 58313923784; // audited operating spending for 2023/24
+
 // Latest monthly creditor ageing (FY2026 period 9 = Mar 2026)
 export const CREDITORS = {
   CPT: [

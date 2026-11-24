@@ -3,7 +3,7 @@
   "name": "io.github.root7-labs/sa-municipal-finance-mcp",
   "title": "SA Municipal Finance MCP",
   "description": "South African municipal finances: Treasury health scores, audit outcomes, supplier payment risk.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "repository": {
     "url": "https://github.com/root7-labs/sa-municipal-finance-mcp",
     "source": "github"
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "sa-municipal-finance-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "SAMUNI_LICENSE_KEY", "description": "Pro licence key (optional)", "isRequired": false, "isSecret": true, "format": "string" }

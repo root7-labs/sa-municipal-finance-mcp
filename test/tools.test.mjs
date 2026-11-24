@@ -153,6 +153,31 @@ test("payment risk tool flags stale data and explains the 30-day rule", async ()
   assert.match(out, /section 65\(2\)\(e\)/);
 });
 
+test("payment risk tool adds context and says what it cannot see, without moving the band", async () => {
+  const { latestIrregularExpenditure } = await import("../dist/indicators.js");
+  const irr = await latestIrregularExpenditure(["CPT", "GT421", "WC024"], 2020, 2027);
+  assert.equal(irr.CPT.year, 2024); // the latest year, not the first one returned
+  assert.equal(irr.CPT.amount, 634262000);
+  assert.equal((irr.CPT.shareOfSpending * 100).toFixed(1), "1.1");
+  assert.equal(irr.GT421, undefined); // null is "not reported", not zero
+  assert.equal(irr.WC024, undefined);
+
+  const cpt = await tools.toolPaymentRisk({ municipality: "CPT" });
+  assert.match(cpt, /Risk band: LOW/);
+  assert.match(cpt, /#### Context \(does not change the band\)/);
+  assert.match(cpt, /Irregular expenditure: R634\.3 m in the 2023\/24 audited statements \(1\.1% of that year's operating spending\)/);
+  assert.match(cpt, /#### What this check cannot see/);
+  assert.match(cpt, /dispute or arbitration/);
+  assert.match(cpt, /Eskom debt relief/);
+  assert.match(cpt, /Claims and lawsuits/);
+  assert.match(cpt, /Unsolicited bids/);
+
+  const emf = await tools.toolPaymentRisk({ municipality: "GT421" });
+  assert.match(emf, /Risk band: HIGH/);
+  assert.match(emf, /Irregular expenditure: no audited figure has been published/);
+  assert.match(emf, /What this check cannot see/);
+});
+
 test("compare tool ranks and needs at least two", async () => {
   const out = await tools.toolCompare({ municipalities: ["CPT", "WC024"] });
   assert.match(out, /\| 1 \| Cape Town \(CPT\)/);

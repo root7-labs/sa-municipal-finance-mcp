@@ -3,6 +3,7 @@ import {
   computeIndicators,
   fetchRaw,
   latestAuditedYears,
+  latestIrregularExpenditure,
   scoreSummary,
   type Indicator,
   type Rating,
@@ -20,6 +21,9 @@ import {
 } from "./municipalities.js";
 import {
   CREDITOR_ITEMS,
+  IRREGULAR_EXPENDITURE_MEANING,
+  PAYMENT_RISK_LIMITS,
+  PAYMENT_RISK_LIMITS_WHERE,
   assessPaymentRisk,
   currentFinancialYear,
   fetchCreditorMonths,
@@ -204,9 +208,11 @@ export async function toolHealthTrend(a: { municipality: string; years?: number 
 export async function toolPaymentRisk(a: { municipality: string; months?: number }): Promise<string> {
   const m = await resolveMunicipality(a.municipality);
   const fy = currentFinancialYear();
-  const [months, latestAudit] = await Promise.all([
+  const [months, latestAudit, irregularByCode] = await Promise.all([
     fetchCreditorMonths(m.code, [fy, fy - 1]),
     latestAuditedYears([m.code], FIRST_V2_YEAR, fy),
+    // Context only: it never changes the band, and a failure here must not cost the user the answer.
+    latestIrregularExpenditure([m.code], FIRST_V2_YEAR, fy).catch(() => ({}) as Awaited<ReturnType<typeof latestIrregularExpenditure>>),
   ]);
   if (months.length === 0) {
     return withNote(m, `${m.name} (${m.code}) has not reported monthly creditor ageing for ${fyLabel(fy - 1)} or ${fyLabel(fy)}.\n\n${sourceNote()}`);
@@ -254,8 +260,23 @@ export async function toolPaymentRisk(a: { municipality: string; months?: number
     "",
     "The MFMA (section 65(2)(e)) requires municipalities to pay creditors within 30 days of receiving an invoice.",
     coverage !== null ? `Latest audited cash coverage: ${coverage.toFixed(1)} months (${fyLabel(latestAudit[m.code])}).` : "",
+  );
+  // Context beside the band. None of this moves the band, which rests only on figures every municipality reports.
+  const irregular = irregularByCode[m.code];
+  lines.push(
     "",
-    sourceNote(", Section 71 monthly returns (unaudited)"),
+    "#### Context (does not change the band)",
+    irregular
+      ? `- Irregular expenditure: ${rand(irregular.amount)} in the ${fyLabel(irregular.year)} audited statements${irregular.shareOfSpending !== null ? ` (${pct(irregular.shareOfSpending, 1)} of that year's operating spending)` : ""}. This is ${IRREGULAR_EXPENDITURE_MEANING}.`
+      : "- Irregular expenditure: no audited figure has been published for this municipality.",
+    "",
+    "#### What this check cannot see",
+    "Treasury's returns show how old the debt is, not why. They do not show:",
+    ...PAYMENT_RISK_LIMITS.map((l) => `- ${l}`),
+    "",
+    PAYMENT_RISK_LIMITS_WHERE,
+    "",
+    sourceNote(", Section 71 monthly returns (unaudited) and audited annual financial statements"),
   );
   return lines.filter((l, i, arr) => !(l === "" && arr[i - 1] === "")).join("\n");
 }

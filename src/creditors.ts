@@ -119,6 +119,21 @@ export interface PaymentRisk {
 }
 
 /**
+ * What the payment-risk check cannot see. Treasury's returns give the age of what is owed and nothing
+ * about why, so these are stated with every answer rather than guessed at. One source for the tool
+ * output and for anything built on it.
+ */
+export const PAYMENT_RISK_LIMITS: string[] = [
+  "Whether any of the debt is in dispute or arbitration. A disputed bill shows as old debt, the same as an unpaid one.",
+  "Court orders, payment plans and National Treasury's Eskom debt relief, under which Eskom debt from before April 2023 can be written off in stages if the municipality keeps to the conditions.",
+  "Claims and lawsuits against the municipality that could take cash away from paying suppliers.",
+  "Unsolicited bids. Irregular expenditure is the nearest published figure, and it is wider.",
+];
+export const PAYMENT_RISK_LIMITS_WHERE = "Where these are disclosed, it is in the municipality's own annual financial statements.";
+/** Plain meaning of irregular expenditure, for wherever the figure is shown. */
+export const IRREGULAR_EXPENDITURE_MEANING = "spending that did not follow the law or the municipality's own supply chain rules";
+
+/**
  * Root 7's payment-risk heuristic (not a Treasury rating). The MFMA (s65(2)(e)) requires
  * municipalities to pay creditors within 30 days, so the share owed for longer is the signal.
  */

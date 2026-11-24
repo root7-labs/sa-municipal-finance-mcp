@@ -1,6 +1,6 @@
 {
   "name": "sa-municipal-finance-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for South African municipal finances: Treasury financial health scorecards, audit outcomes, supplier payment risk and comparisons for every municipality.",
   "type": "module",
   "bin": {

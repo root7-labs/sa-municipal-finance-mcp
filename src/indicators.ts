@@ -270,6 +270,53 @@ export function scoreSummary(ind: Indicator[]): { good: number; average: number;
   return s;
 }
 
+export interface IrregularExpenditure {
+  /** Financial year end of the latest audited figure, e.g. 2024 for 2023/24. */
+  year: number;
+  /** Rands. Zero is a real answer: the statements reported none. */
+  amount: number;
+  /** As a share of that year's audited operating spending (0.012 = 1.2%), or null when spending was not reported. */
+  shareOfSpending: number | null;
+}
+
+/**
+ * Latest audited irregular expenditure for each municipality: spending that did not follow the law or the
+ * municipality's own supply chain rules, from the notes to its annual financial statements (uifwexp cube).
+ * It is the nearest figure Treasury publishes to how contracts were awarded. Municipalities with no figure are left out.
+ */
+export async function latestIrregularExpenditure(codes: string[], fromYear: number, toYear: number): Promise<Record<string, IrregularExpenditure>> {
+  const years: number[] = [];
+  for (let y = toYear; y >= fromYear; y--) years.push(y);
+  const cells = await aggregate(
+    "uifwexp",
+    { "demarcation.code": codes, "financial_year_end.year": years, "item.code": ["irregular"] },
+    ["demarcation.code", "financial_year_end.year"],
+  );
+  const out: Record<string, IrregularExpenditure> = {};
+  for (const c of cells) {
+    if (typeof c["amount.sum"] !== "number") continue; // null means not reported, which is not the same as zero
+    const k = code(c);
+    if (!out[k] || year(c) > out[k].year) out[k] = { year: year(c), amount: Math.abs(c["amount.sum"]), shareOfSpending: null };
+  }
+  // That year's audited operating spending, to show the figure in proportion.
+  const byYear = new Map<number, string[]>();
+  for (const [k, v] of Object.entries(out)) byYear.set(v.year, [...(byYear.get(v.year) ?? []), k]);
+  await Promise.all(
+    [...byYear].map(async ([y, list]) => {
+      const spending = await aggregate(
+        "incexp_v2",
+        { "demarcation.code": list, "period_length.length": ["year"], "financial_year_end.year": [y], "item.code": SPENDING_CODES, "amount_type.code": ["AUDA"] },
+        ["demarcation.code"],
+      );
+      for (const c of spending) {
+        const total = num(c["amount.sum"]);
+        if (total > 0 && out[code(c)]) out[code(c)].shareOfSpending = out[code(c)].amount / total;
+      }
+    }),
+  );
+  return out;
+}
+
 /** Latest financial year with audited cash-flow figures for each municipality. */
 export async function latestAuditedYears(codes: string[], fromYear: number, toYear: number): Promise<Record<string, number>> {
   const years: number[] = [];

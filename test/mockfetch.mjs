@@ -1,5 +1,5 @@
 // Replaces global fetch with a router that answers Municipal Money API calls from fixtures.
-import { MUNICIPALITIES, DEMARCATION_CHANGES, CPT_2025, CREDITORS, BUCKETS } from "./fixtures.mjs";
+import { MUNICIPALITIES, DEMARCATION_CHANGES, CPT_2025, CREDITORS, BUCKETS, IRREGULAR, CPT_2024_OPEX } from "./fixtures.mjs";
 
 export const calls = [];
 const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
@@ -39,6 +39,9 @@ export function installMockFetch() {
           ...Object.fromEntries(BUCKETS.map((b, i) => [`${b}_amount.sum`, vals[i]])),
         })) });
       }
+      // Latest irregular expenditure, and the operating spending of the year it relates to (2023/24)
+      if (cube === "uifwexp" && (cut["item.code"] ?? []).join() === "irregular") return json({ cells: IRREGULAR.filter((c) => codes.includes(c["demarcation.code"])) });
+      if (cube === "incexp_v2" && (cut["financial_year_end.year"] ?? []).join() === "2024") return json({ cells: codes.includes("CPT") ? [{ "demarcation.code": "CPT", "amount.sum": CPT_2024_OPEX }] : [] });
       if (!cpt) return json({ cells: [] });
       const items = cut["item.code"] ?? [];
       if (cube === "cflow_v2") return json({ cells: [cell({ "amount.sum": items.includes("0430") ? CPT_2025.cash : CPT_2025.collected })] });

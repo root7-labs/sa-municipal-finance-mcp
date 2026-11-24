@@ -19,7 +19,7 @@ Built for suppliers and contractors bidding for municipal work, consultants, len
 | `municipality_profile` | Free | Contact details and Auditor-General opinions by year, with report links |
 | `financial_health` | Free | Treasury's nine indicators for one audited year, rated good / average / bad |
 | `health_trend` | **Pro** | The nine indicators over up to seven years, with improving/worsening flags |
-| `supplier_payment_risk` | **Pro** | Money owed to suppliers, Eskom and water boards by age, recent trend and a low/moderate/high risk band |
+| `supplier_payment_risk` | **Pro** | Money owed to suppliers, Eskom and water boards by age, recent trend and a low/moderate/high risk band, with irregular expenditure as context and a plain list of what the check cannot see |
 | `compare_municipalities` | **Pro** | Rank up to 20 municipalities, or a whole province or category (e.g. all metros) |
 | `samuni_status` | Free | Shows your tier |
 
@@ -80,6 +80,7 @@ The supplier payment risk band is Root 7's own heuristic, not a Treasury rating.
 ## Good to know
 
 - **Data quality.** Figures are as submitted by municipalities and may be incomplete or revised. Monthly creditor returns are unaudited and usually a few months behind.
+- **What the payment risk check cannot see.** Treasury's returns show how old a debt is, not why. They do not show disputes or arbitration, court orders, payment plans or Eskom debt relief, claims against the municipality, or unsolicited bids. The tool says so with every answer, and shows audited irregular expenditure as context without letting it change the band.
 - **Not advice.** Outputs are informational and are not financial, credit, legal or investment advice.
 - **Source and attribution.** Data: National Treasury, Municipal Money (municipaldata.treasury.gov.za), used under its terms of use. Indicator methodology: OpenUp / Code for South Africa (MIT). This product is not affiliated with or endorsed by National Treasury.
 - **Privacy.** The server runs on your machine and queries National Treasury directly. It does not use the personal details of municipal officials.
