@@ -1,6 +1,11 @@
 name: Publish to MCP Registry
 
+# Runs on a schedule rather than by hand, so run history shows "Scheduled"
+# instead of a personal GitHub username. It only publishes when server.json
+# has a version that is already on npm but not yet in the MCP Registry.
 on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours
   workflow_dispatch:
 
 permissions:
@@ -13,15 +18,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Decide whether to publish
+        id: check
+        run: |
+          NAME=$(jq -r .name server.json)
+          VERSION=$(jq -r .version server.json)
+          PKG=$(jq -r '.packages[0].identifier' server.json)
+          echo "Server $NAME version $VERSION (npm package $PKG)"
+
+          if ! curl -sf "https://registry.npmjs.org/$PKG/$VERSION" > /dev/null; then
+            echo "Version $VERSION is not on npm yet. Nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          LISTED=$(curl -sf "https://registry.modelcontextprotocol.io/v0/servers?search=$NAME" \
+            | jq -r --arg n "$NAME" --arg v "$VERSION" \
+              '[.servers[]?.server | select(.name == $n and .version == $v)] | length')
+          if [ "${LISTED:-0}" != "0" ]; then
+            echo "Version $VERSION is already in the MCP Registry. Nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          echo "Version $VERSION is on npm but not in the registry. Publishing."
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
       - name: Install mcp-publisher
+        if: steps.check.outputs.publish == 'true'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
 
-      - name: Validate server.json
-        run: ./mcp-publisher validate || true
-
       - name: Log in with GitHub OIDC
+        if: steps.check.outputs.publish == 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish server.json
+        if: steps.check.outputs.publish == 'true'
         run: ./mcp-publisher publish
