@@ -270,6 +270,27 @@ export function scoreSummary(ind: Indicator[]): { good: number; average: number;
   return s;
 }
 
+/**
+ * Audited cash coverage in months for one financial year, asking Treasury only for the two datasets it needs
+ * (cash at year end and operating spending). The formula is the scorecard's own, so the answer matches
+ * financial_health. Used where nothing else from the scorecard is wanted, so that an outage in an unrelated
+ * dataset (capital spending, say) cannot take the answer down with it.
+ */
+export async function cashCoverageMonths(codes: string[], fy: number): Promise<Record<string, number | null>> {
+  const base = { "demarcation.code": codes, "period_length.length": ["year"], "financial_year_end.year": [fy], "amount_type.code": ["AUDA"] };
+  const [cash, opex] = await Promise.all([
+    aggregate("cflow_v2", { ...base, "item.code": [CASH_AT_YEAR_END_CODE] }, ["demarcation.code"]),
+    aggregate("incexp_v2", { ...base, "item.code": SPENDING_CODES }, ["demarcation.code", "amount_type.code"]),
+  ]);
+  const raw: Record<string, RawYear> = {};
+  const slotFor = (c: Cell) => (raw[code(c)] ??= { items: {} });
+  for (const c of cash) slotFor(c).cashAtYearEnd = num(c["amount.sum"]);
+  for (const c of opex) if (c["amount_type.code"] === "AUDA") slotFor(c).opexActual = num(c["amount.sum"]);
+  const out: Record<string, number | null> = {};
+  for (const k of codes) out[k] = computeIndicators(raw[k]).find((i) => i.key === "cash_coverage")?.value ?? null;
+  return out;
+}
+
 export interface IrregularExpenditure {
   /** Financial year end of the latest audited figure, e.g. 2024 for 2023/24. */
   year: number;

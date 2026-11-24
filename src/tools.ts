@@ -1,5 +1,6 @@
 // Tool implementations. Each returns Markdown for the AI client to read and cite.
 import {
+  cashCoverageMonths,
   computeIndicators,
   fetchRaw,
   latestAuditedYears,
@@ -21,6 +22,7 @@ import {
 } from "./municipalities.js";
 import {
   CREDITOR_ITEMS,
+  IRREGULAR_EXPENDITURE_CAVEAT,
   IRREGULAR_EXPENDITURE_MEANING,
   PAYMENT_RISK_LIMITS,
   PAYMENT_RISK_LIMITS_WHERE,
@@ -219,10 +221,7 @@ export async function toolPaymentRisk(a: { municipality: string; months?: number
   }
   const latest = months[0];
   let coverage: number | null = null;
-  if (latestAudit[m.code]) {
-    const raw = await fetchRaw([m.code], [latestAudit[m.code]]);
-    coverage = computeIndicators(raw[m.code]?.[latestAudit[m.code]]).find((i) => i.key === "cash_coverage")?.value ?? null;
-  }
+  if (latestAudit[m.code]) coverage = (await cashCoverageMonths([m.code], latestAudit[m.code]))[m.code] ?? null;
   const risk = assessPaymentRisk(latest, coverage);
   const total = totalOf(latest);
   const lines = [
@@ -267,7 +266,7 @@ export async function toolPaymentRisk(a: { municipality: string; months?: number
     "",
     "#### Context (does not change the band)",
     irregular
-      ? `- Irregular expenditure: ${rand(irregular.amount)} in the ${fyLabel(irregular.year)} audited statements${irregular.shareOfSpending !== null ? ` (${pct(irregular.shareOfSpending, 1)} of that year's operating spending)` : ""}. This is ${IRREGULAR_EXPENDITURE_MEANING}.`
+      ? `- Irregular expenditure: ${rand(irregular.amount)} reported in the ${fyLabel(irregular.year)} audited statements${irregular.shareOfSpending !== null ? `, equal to ${pct(irregular.shareOfSpending, 1)} of that year's operating spending` : ""}. This is ${IRREGULAR_EXPENDITURE_MEANING}. ${IRREGULAR_EXPENDITURE_CAVEAT}`
       : "- Irregular expenditure: no audited figure has been published for this municipality.",
     "",
     "#### What this check cannot see",

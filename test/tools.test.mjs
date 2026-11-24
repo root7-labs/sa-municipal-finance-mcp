@@ -165,7 +165,8 @@ test("payment risk tool adds context and says what it cannot see, without moving
   const cpt = await tools.toolPaymentRisk({ municipality: "CPT" });
   assert.match(cpt, /Risk band: LOW/);
   assert.match(cpt, /#### Context \(does not change the band\)/);
-  assert.match(cpt, /Irregular expenditure: R634\.3 m in the 2023\/24 audited statements \(1\.1% of that year's operating spending\)/);
+  assert.match(cpt, /Irregular expenditure: R634\.3 m reported in the 2023\/24 audited statements, equal to 1\.1% of that year's operating spending\./);
+  assert.match(cpt, /does not say whether the figure is for that year alone/);
   assert.match(cpt, /#### What this check cannot see/);
   assert.match(cpt, /dispute or arbitration/);
   assert.match(cpt, /Eskom debt relief/);

@@ -132,6 +132,8 @@ export const PAYMENT_RISK_LIMITS: string[] = [
 export const PAYMENT_RISK_LIMITS_WHERE = "Where these are disclosed, it is in the municipality's own annual financial statements.";
 /** Plain meaning of irregular expenditure, for wherever the figure is shown. */
 export const IRREGULAR_EXPENDITURE_MEANING = "spending that did not follow the law or the municipality's own supply chain rules";
+/** The figure can exceed a whole year's spending for some municipalities, so it cannot be assumed to be one year's alone. */
+export const IRREGULAR_EXPENDITURE_CAVEAT = "Treasury's data does not say whether the figure is for that year alone or includes earlier years not yet resolved.";
 
 /**
  * Root 7's payment-risk heuristic (not a Treasury rating). The MFMA (s65(2)(e)) requires
