@@ -1,6 +1,6 @@
 {
   "name": "sa-municipal-finance-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for South African municipal finances: Treasury financial health scorecards, audit outcomes, supplier payment risk and comparisons for every municipality.",
   "type": "module",
   "bin": {
@@ -31,16 +31,16 @@
   ],
   "license": "SEE LICENSE IN LICENSE",
   "author": "Root 7 (Pty) Ltd <hello@root7.co.za>",
-  "homepage": "https://github.com/kramdayal-create/sa-municipal-finance-mcp#readme",
+  "homepage": "https://github.com/root7-labs/sa-municipal-finance-mcp#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kramdayal-create/sa-municipal-finance-mcp.git"
+    "url": "git+https://github.com/root7-labs/sa-municipal-finance-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/kramdayal-create/sa-municipal-finance-mcp/issues",
+    "url": "https://github.com/root7-labs/sa-municipal-finance-mcp/issues",
     "email": "hello@root7.co.za"
   },
-  "mcpName": "io.github.kramdayal-create/sa-municipal-finance-mcp",
+  "mcpName": "io.github.root7-labs/sa-municipal-finance-mcp",
   "engines": {
     "node": ">=18.17"
   },

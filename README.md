@@ -86,6 +86,6 @@ The supplier payment risk band is Root 7's own heuristic, not a Treasury rating.
 
 ## Support
 
-Questions or bugs: [open an issue](https://github.com/kramdayal-create/sa-municipal-finance-mcp/issues) or email hello@root7.co.za.
+Questions or bugs: [open an issue](https://github.com/root7-labs/sa-municipal-finance-mcp/issues) or email hello@root7.co.za.
 
 SA Municipal Finance MCP is built by Root 7 (Pty) Ltd, South Africa.

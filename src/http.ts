@@ -1,6 +1,6 @@
 // Shared HTTP layer: timeouts, retries, per-host politeness delay and a small in-memory cache.
 
-const USER_AGENT = "sa-municipal-finance-mcp/0.1 (+https://github.com/kramdayal-create/sa-municipal-finance-mcp)";
+const USER_AGENT = "sa-municipal-finance-mcp/0.1 (+https://github.com/root7-labs/sa-municipal-finance-mcp)";
 const DEFAULT_TIMEOUT_MS = 20_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // data changes quarterly
 const CACHE_MAX = 500;
