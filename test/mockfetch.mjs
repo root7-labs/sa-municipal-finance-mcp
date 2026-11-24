@@ -1,5 +1,5 @@
 // Replaces global fetch with a router that answers Municipal Money API calls from fixtures.
-import { MUNICIPALITIES, CPT_2025, CREDITORS, BUCKETS } from "./fixtures.mjs";
+import { MUNICIPALITIES, DEMARCATION_CHANGES, CPT_2025, CREDITORS, BUCKETS } from "./fixtures.mjs";
 
 export const calls = [];
 const json = (o) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
@@ -22,6 +22,7 @@ export function installMockFetch() {
     const cut = parseCut(url.searchParams.get("cut"));
     const codes = cut["demarcation.code"] ?? [];
     if (cube === "municipalities") return json({ data: MUNICIPALITIES });
+    if (cube === "demarcation_changes") return json({ data: DEMARCATION_CHANGES });
     if (cube === "audit_opinions") {
       return json({ data: codes.includes("CPT") ? [
         { "financial_year_end.year": 2024, "opinion.code": "unqualified", "opinion.label": "Unqualified - No findings", "opinion.report_url": "https://lg.treasury.gov.za/supportingdocs/CPT/CPT_Audit%20Report_2024.pdf" },

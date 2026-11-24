@@ -13,6 +13,7 @@ import {
   auditOpinions,
   fyLabel,
   provinceCode,
+  resolveFormer,
   resolveMunicipality,
   searchMunicipalities,
   type Municipality,
@@ -68,7 +69,13 @@ export function sourceNote(extra = ""): string {
 }
 
 function muniHeading(m: Municipality): string {
-  return `${m.name} (${m.code}) — ${CATEGORY_LABELS[m.category] ?? m.category}, ${m.province}`;
+  const heading = `${m.name} (${m.code}) — ${CATEGORY_LABELS[m.category] ?? m.category}, ${m.province}`;
+  return m.note ? `${heading}\n\n_${m.note}_\n` : heading;
+}
+
+/** Puts the "this municipality was merged" note, if there is one, ahead of a one-line answer. */
+function withNote(m: Municipality, text: string): string {
+  return m.note ? `_${m.note}_\n\n${text}` : text;
 }
 
 // ---------- free tools ----------
@@ -76,7 +83,13 @@ function muniHeading(m: Municipality): string {
 export async function toolFindMunicipality(a: { query?: string; province?: string; category?: "A" | "B" | "C"; limit?: number }): Promise<string> {
   const list = await searchMunicipalities(a);
   const limit = a.limit ?? 25;
-  if (list.length === 0) return `No municipalities match${a.query ? ` "${a.query}"` : ""}.`;
+  if (list.length === 0) {
+    // A name that matches nothing current may be a municipality that was merged away.
+    const successor = a.query ? await resolveFormer(a.query).catch((e: Error) => e.message) : undefined;
+    if (typeof successor === "string") return successor;
+    if (successor?.note) return successor.note.replace(/, so these figures are for .*$/, ".");
+    return `No municipalities match${a.query ? ` "${a.query}"` : ""}.`;
+  }
   const rows = list.slice(0, limit).map((m) => `| ${m.name} | ${m.code} | ${CATEGORY_LABELS[m.category] ?? m.category} | ${m.province} |`);
   return [
     `### Municipalities (${Math.min(limit, list.length)} of ${list.length})`,
@@ -130,7 +143,7 @@ export async function toolFinancialHealth(a: { municipality: string; year?: numb
   if (!fy) {
     const latest = await latestAuditedYears([m.code], FIRST_V2_YEAR, currentFinancialYear());
     fy = latest[m.code];
-    if (!fy) return `${m.name} (${m.code}) has no audited mSCOA financial statements in the Municipal Money data yet.`;
+    if (!fy) return withNote(m, `${m.name} (${m.code}) has no audited mSCOA financial statements in the Municipal Money data yet.`);
   }
   if (fy < FIRST_V2_YEAR) throw new Error(`Indicators are available from the ${fyLabel(FIRST_V2_YEAR)} financial year onwards.`);
   const raw = await fetchRaw([m.code], [fy]);
@@ -155,7 +168,7 @@ export async function toolFinancialHealth(a: { municipality: string; year?: numb
 export async function toolHealthTrend(a: { municipality: string; years?: number }): Promise<string> {
   const m = await resolveMunicipality(a.municipality);
   const latest = (await latestAuditedYears([m.code], FIRST_V2_YEAR, currentFinancialYear()))[m.code];
-  if (!latest) return `${m.name} (${m.code}) has no audited mSCOA financial statements in the data yet.`;
+  if (!latest) return withNote(m, `${m.name} (${m.code}) has no audited mSCOA financial statements in the data yet.`);
   const n = Math.min(Math.max(a.years ?? 5, 2), 7);
   const years: number[] = [];
   for (let y = latest; y > latest - n && y >= FIRST_V2_YEAR; y--) years.push(y);
@@ -196,7 +209,7 @@ export async function toolPaymentRisk(a: { municipality: string; months?: number
     latestAuditedYears([m.code], FIRST_V2_YEAR, fy),
   ]);
   if (months.length === 0) {
-    return `${m.name} (${m.code}) has not reported monthly creditor ageing for ${fyLabel(fy - 1)} or ${fyLabel(fy)}.\n\n${sourceNote()}`;
+    return withNote(m, `${m.name} (${m.code}) has not reported monthly creditor ageing for ${fyLabel(fy - 1)} or ${fyLabel(fy)}.\n\n${sourceNote()}`);
   }
   const latest = months[0];
   let coverage: number | null = null;

@@ -13,6 +13,8 @@ export interface Municipality {
   phone?: string;
   url?: string;
   address?: string;
+  /** Set when a name or code for a municipality that no longer exists was resolved to its successor. */
+  note?: string;
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {
@@ -55,14 +57,46 @@ function toMunicipality(c: Cell): Municipality {
   };
 }
 
-let directory: Promise<Municipality[]> | undefined;
+/** A municipality that was merged away, and the code(s) of what replaced it. */
+interface Former {
+  municipality: Municipality;
+  successors: string[];
+  year: string;
+}
 
-export function allMunicipalities(): Promise<Municipality[]> {
-  directory ??= facts("municipalities", {}).then((rows) => rows.map(toMunicipality).filter((m) => m.code && m.name));
+let directory: Promise<{ current: Municipality[]; former: Former[] }> | undefined;
+
+// Treasury's directory still lists municipalities that were disestablished (most in the August 2016
+// boundary changes). They have no current data, so they are kept apart and resolved to their successors.
+function loadDirectory(): Promise<{ current: Municipality[]; former: Former[] }> {
+  directory ??= Promise.all([
+    facts("municipalities", {}),
+    facts("demarcation_changes", {}).catch(() => [] as Cell[]), // without it, fall back to the full list
+  ]).then(([rows, changes]) => {
+    const all = rows.map(toMunicipality).filter((m) => m.code && m.name);
+    const gone = new Map<string, { successors: string[]; year: string }>();
+    for (const c of changes) {
+      if (s(c["old_code_transition.code"]) !== "disestablished") continue;
+      const old = s(c["old_demarcation.code"]);
+      const g = gone.get(old) ?? { successors: [], year: s(c["date.date"]).slice(0, 4) };
+      const next = s(c["new_demarcation.code"]);
+      if (next && !g.successors.includes(next)) g.successors.push(next);
+      gone.set(old, g);
+    }
+    return {
+      current: all.filter((m) => !gone.has(m.code)),
+      former: all.filter((m) => gone.has(m.code)).map((m) => ({ municipality: m, ...gone.get(m.code)! })),
+    };
+  });
   directory.catch(() => {
     directory = undefined;
   });
   return directory;
+}
+
+/** Municipalities that exist today. Ones that were merged away are left out. */
+export async function allMunicipalities(): Promise<Municipality[]> {
+  return (await loadDirectory()).current;
 }
 
 export function resetDirectory(): void {
@@ -119,9 +153,55 @@ export async function searchMunicipalities(opts: { query?: string; province?: st
   return list;
 }
 
+/**
+ * If the input is the code or exact name of a municipality that no longer exists, returns its successor
+ * with a note saying so. Throws when it was split between several. Returns undefined when it is not a former one.
+ */
+export async function resolveFormer(input: string): Promise<Municipality | undefined> {
+  const f = await findFormer(input);
+  if (!f) return undefined;
+  const old = `${f.old.name} (${f.old.code})`;
+  if (f.next.length === 1) {
+    return { ...f.next[0], note: `${old} no longer exists. It became part of ${f.next[0].name} (${f.next[0].code}) in ${f.year}, so these figures are for ${f.next[0].name}.` };
+  }
+  if (f.next.length > 1) throw new Error(`${old} no longer exists. In ${f.year} it was split between ${listOf(f.next)}. Ask about one of those.`);
+  throw new Error(`${old} no longer exists, and the municipality that replaced it is not in Treasury's directory.`);
+}
+
+const listOf = (ms: Municipality[]) => ms.map((m) => `${m.name} (${m.code})`).join(", ");
+
+/** The former municipality whose code or exact name matches the input, with the current municipalities that replaced it. */
+async function findFormer(input: string): Promise<{ old: Municipality; year: string; next: Municipality[] } | undefined> {
+  const { current, former } = await loadDirectory();
+  const q = input.trim().toUpperCase();
+  const nq = norm(input);
+  const hit = former.find((f) => f.municipality.code.toUpperCase() === q) ?? former.find((f) => nq !== "" && norm(f.municipality.name) === nq);
+  if (!hit) return undefined;
+  const next = hit.successors.map((c) => current.find((m) => m.code === c)).filter((m): m is Municipality => !!m);
+  return { old: hit.municipality, year: hit.year, next };
+}
+
 /** Resolves a demarcation code or a name to exactly one municipality, or throws a helpful error. */
 export async function resolveMunicipality(input: string): Promise<Municipality> {
   const hits = await searchMunicipalities({ query: input });
+  // An exact old name or code wins over a partial match on a current one: "Nxuba" (merged into
+  // Raymond Mhlaba) must not land on "Inxuba Yethemba", which is a different municipality.
+  const nq = norm(input);
+  const exactCurrent = hits.some((m) => m.code.toUpperCase() === input.trim().toUpperCase() || norm(m.name) === nq);
+  const former = exactCurrent ? undefined : await findFormer(input);
+  if (former) {
+    // Two places shared the name and one still exists: "Naledi" in the Free State is gone, "Naledi (NW)" is not.
+    // Answer for the one that exists, and say what happened to the other.
+    const sameName = hits.filter((m) => norm(m.name).startsWith(nq) && !former.next.some((n) => n.code === m.code));
+    if (sameName.length === 1) {
+      const m = sameName[0];
+      const fate = former.next.length === 1 ? `it became part of ${listOf(former.next)}` : former.next.length > 1 ? `it was split between ${listOf(former.next)}` : "it was disestablished";
+      const where = (x: Municipality) => PROVINCES[x.provinceCode] ?? x.province;
+      return { ...m, note: `These figures are for ${m.name} (${m.code}) in ${where(m)}. The ${former.old.name} (${former.old.code}) in ${where(former.old)} no longer exists: ${fate} in ${former.year}.` };
+    }
+    const successor = await resolveFormer(input);
+    if (successor) return successor;
+  }
   if (hits.length === 0) throw new Error(`No municipality matches "${input}". Try find_municipality first.`);
   const top = hits[0];
   if (hits.length > 1 && top.code.toUpperCase() !== input.trim().toUpperCase() && norm(top.name) !== norm(input)) {

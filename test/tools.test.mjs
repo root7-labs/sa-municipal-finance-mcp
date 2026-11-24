@@ -78,6 +78,47 @@ test("municipality search and resolution", async () => {
   await assert.rejects(searchMunicipalities({ province: "Narnia" }), /Unknown province/);
 });
 
+test("municipalities that were merged away resolve to their successor", async () => {
+  // Not listed any more, by name, by province or by code
+  const gt = await searchMunicipalities({ province: "Gauteng" });
+  assert.deepEqual(gt.map((m) => m.code).sort(), ["GT421", "GT485"]);
+  assert.deepEqual(await searchMunicipalities({ query: "GT482" }), []);
+
+  // The old name and the old code both give the successor, with a note
+  for (const q of ["Randfontein", "gt482", "Randfontein Local Municipality"]) {
+    const m = await resolveMunicipality(q);
+    assert.equal(m.code, "GT485");
+    assert.match(m.note, /Randfontein \(GT482\) no longer exists\. It became part of Rand West City \(GT485\) in 2016/);
+  }
+  assert.equal((await resolveMunicipality("Rand West City")).note, undefined);
+
+  // An exact old name beats a partial match on a different, current municipality
+  assert.equal((await resolveMunicipality("Nxuba")).code, "EC129");
+  assert.equal((await resolveMunicipality("Inxuba Yethemba")).code, "EC131");
+  assert.equal((await resolveMunicipality("Inxuba")).code, "EC131");
+
+  // Two places shared a name and one still exists: answer for that one, and say what happened to the other
+  const naledi = await resolveMunicipality("Naledi");
+  assert.equal(naledi.code, "NW392");
+  assert.match(naledi.note, /These figures are for Naledi \(NW\) \(NW392\) in North West\. The Naledi \(FS164\) in Free State no longer exists: it became part of Mangaung \(MAN\) in 2016\./);
+  assert.equal((await resolveMunicipality("FS164")).code, "MAN");
+  assert.equal((await resolveMunicipality("Naledi (NW)")).note, undefined);
+
+  // One that was split cannot be answered for a single successor
+  await assert.rejects(resolveMunicipality("Mutale"), /Mutale \(LIM342\) no longer exists\. In 2016 it was split between Musina \(LIM341\), Thulamela \(LIM343\)/);
+  // "continue" rows are not disestablishments: Thulamela still exists
+  assert.equal((await resolveMunicipality("Thulamela")).code, "LIM343");
+
+  // The tools carry the note, so the reader knows which municipality the figures are for
+  const risk = await tools.toolPaymentRisk({ municipality: "Randfontein" });
+  assert.match(risk, /^_Randfontein \(GT482\) no longer exists\./);
+  assert.match(risk, /Rand West City \(GT485\) has not reported/);
+  const found = await tools.toolFindMunicipality({ query: "Randfontein" });
+  assert.match(found, /Randfontein \(GT482\) no longer exists\. It became part of Rand West City \(GT485\) in 2016\.$/);
+  assert.match(await tools.toolFindMunicipality({ query: "Mutale" }), /split between/);
+  assert.match(await tools.toolFindMunicipality({ query: "Atlantis" }), /No municipalities match "Atlantis"/);
+});
+
 test("payment risk: Cape Town is low, Emfuleni is high", async () => {
   const { fetchCreditorMonths } = await import("../dist/creditors.js");
   const cpt = await fetchCreditorMonths("CPT", [2026]);
